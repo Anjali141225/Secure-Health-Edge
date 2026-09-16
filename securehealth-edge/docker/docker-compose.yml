@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  cloud:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.cloud
+    ports:
+      - "8000:8000"
+    volumes:
+      - cloud-data:/app/cloud
+
+  edge:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.edge
+    depends_on:
+      - cloud
+
+  dashboard:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ../dashboard:/app
+    ports:
+      - "8080:8080"
+    command: ["python", "-m", "http.server", "8080"]
+    depends_on:
+      - cloud
+
+volumes:
+  cloud-data:

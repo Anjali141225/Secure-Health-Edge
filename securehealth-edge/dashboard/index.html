@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>SecureHealth-Edge — Caregiver Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1720;
+    --card: #17212b;
+    --card-alert: #3a1414;
+    --text: #e6edf3;
+    --muted: #8b98a5;
+    --good: #3fb950;
+    --bad: #f85149;
+    --accent: #58a6ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid #2a3540;
+  }
+  .card.alert {
+    background: var(--card-alert);
+    border-color: var(--bad);
+  }
+  .card h2 { font-size: 15px; margin: 0 0 12px; display: flex; justify-content: space-between; }
+  .badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--good);
+    color: #04250a;
+    font-weight: 600;
+  }
+  .card.alert .badge { background: var(--bad); color: #2a0505; }
+  .vital { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; color: var(--muted); }
+  .vital span:last-child { color: var(--text); font-weight: 600; }
+  .reason { margin-top: 10px; font-size: 12px; color: var(--bad); }
+  .alerts-panel {
+    margin-top: 32px;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid #2a3540;
+  }
+  .alerts-panel h2 { font-size: 15px; margin-top: 0; }
+  .alert-row { font-size: 13px; padding: 6px 0; border-bottom: 1px solid #2a3540; color: var(--muted); }
+  .alert-row b { color: var(--text); }
+  .status-line { font-size: 12px; color: var(--muted); margin-top: 24px; }
+  #cloudUrl { background: #0c141b; border: 1px solid #2a3540; color: var(--text); padding: 4px 8px; border-radius: 6px; }
+</style>
+</head>
+<body>
+  <h1>SecureHealth-Edge</h1>
+  <div class="subtitle">Caregiver / Admin dashboard — polling cloud service every 2s
+    &nbsp;·&nbsp; Cloud API: <input id="cloudUrl" value="http://localhost:8000" size="28" />
+  </div>
+
+  <div class="grid" id="patientGrid"></div>
+
+  <div class="alerts-panel">
+    <h2>Recent Alerts</h2>
+    <div id="alertsList"></div>
+  </div>
+
+  <div class="status-line" id="statusLine">connecting…</div>
+
+<script>
+const grid = document.getElementById('patientGrid');
+const alertsList = document.getElementById('alertsList');
+const statusLine = document.getElementById('statusLine');
+const cloudUrlInput = document.getElementById('cloudUrl');
+
+function fmtTime(ts) {
+  return new Date(ts * 1000).toLocaleTimeString();
+}
+
+async function refresh() {
+  const base = cloudUrlInput.value.replace(/\/$/, '');
+  try {
+    const [patientsRes, alertsRes] = await Promise.all([
+      fetch(`${base}/patients`),
+      fetch(`${base}/alerts?limit=15`)
+    ]);
+    const patients = await patientsRes.json();
+    const alerts = await alertsRes.json();
+
+    grid.innerHTML = patients.map(p => `
+      <div class="card ${p.anomaly ? 'alert' : ''}">
+        <h2>${p.patient_id} <span class="badge">${p.anomaly ? 'ALERT' : 'STABLE'}</span></h2>
+        <div class="vital"><span>Heart rate</span><span>${p.heart_rate} bpm</span></div>
+        <div class="vital"><span>SpO2</span><span>${p.spo2}%</span></div>
+        <div class="vital"><span>Respiration</span><span>${p.resp_rate}/min</span></div>
+        <div class="vital"><span>Fall detected</span><span>${p.fall_detected ? 'Yes' : 'No'}</span></div>
+        <div class="vital"><span>Edge node</span><span>${p.edge_node ?? '—'}</span></div>
+        <div class="vital"><span>Updated</span><span>${fmtTime(p.timestamp)}</span></div>
+        ${p.anomaly ? `<div class="reason">${p.anomaly_reason}</div>` : ''}
+      </div>
+    `).join('') || '<p style="color:var(--muted)">No patient data yet — start the edge gateway.</p>';
+
+    alertsList.innerHTML = alerts.map(a => `
+      <div class="alert-row"><b>${a.patient_id}</b> — ${a.reason} <span style="float:right">${fmtTime(a.timestamp)}</span></div>
+    `).join('') || '<p style="color:var(--muted)">No alerts yet.</p>';
+
+    statusLine.textContent = `Connected to ${base} · last refresh ${new Date().toLocaleTimeString()}`;
+  } catch (err) {
+    statusLine.textContent = `Could not reach cloud API at ${base} (${err})`;
+  }
+}
+
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>

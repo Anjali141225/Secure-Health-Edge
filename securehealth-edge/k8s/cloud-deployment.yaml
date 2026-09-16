@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: securehealth-cloud
+  labels:
+    app: securehealth-cloud
+spec:
+  replicas: 2                     # auto-scaling target for the Objectives slide
+  selector:
+    matchLabels:
+      app: securehealth-cloud
+  template:
+    metadata:
+      labels:
+        app: securehealth-cloud
+    spec:
+      containers:
+        - name: cloud
+          image: securehealth-edge/cloud:v1
+          ports:
+            - containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: securehealth-cloud-svc
+spec:
+  selector:
+    app: securehealth-cloud
+  ports:
+    - port: 8000
+      targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: securehealth-cloud-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: securehealth-cloud
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
