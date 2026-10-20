@@ -107,7 +107,7 @@ def run(cloud_url: str, interval: float, edge_node: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SecureHealth-Edge gateway simulator")
-    parser.add_argument("--cloud-url", default="http://localhost:8000")
+    parser.add_argument("--cloud-url", default= "https://secure-health-edge.onrender.com")
     parser.add_argument("--interval", type=float, default=2.0, help="seconds between reading batches")
     parser.add_argument("--edge-node", default="edge-gateway-1")
     args = parser.parse_args()
